@@ -6,7 +6,7 @@
 # g++ is for most Linux
 C++ = g++ -std=c++11
 
-all: dataserver simpleclient
+all: dataserver simpleclient client
 
 reqchannel.o: reqchannel.hpp reqchannel.cpp
 	$(C++) -c -g reqchannel.cpp
@@ -16,3 +16,6 @@ dataserver: dataserver.cpp reqchannel.o
 
 simpleclient: simpleclient.cpp reqchannel.o
 	$(C++) -o simpleclient simpleclient.cpp reqchannel.o
+
+client: client.cpp reqchannel.o
+	$(C++) -o client client.cpp reqchannel.o	
