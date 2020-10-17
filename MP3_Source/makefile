@@ -11,7 +11,7 @@ C++ = /usr/bin/g++ -std=c++11
 clean:
 	rm -f *.o sync_test_mutex sync_test_mg sync_test_semaphore sync_test_pcbuffer
 
-all: test_suite
+all: dataserver simpleclient client #test_suite
 
 reqchannel.o: reqchannel.hpp reqchannel.cpp
 	$(C++) -c -g reqchannel.cpp
@@ -27,6 +27,15 @@ semaphore.o: semaphore.hpp semaphore.cpp
 
 pc_buffer.o: pc_buffer.hpp pc_buffer.cpp semaphore.hpp
 	$(C++) -c -g pc_buffer.cpp
+
+dataserver: dataserver.cpp reqchannel.o 
+	$(C++) -o dataserver dataserver.cpp reqchannel.o -lpthread
+
+simpleclient: simpleclient.cpp reqchannel.o
+	$(C++) -o simpleclient simpleclient.cpp reqchannel.o
+
+client: client.cpp reqchannel.o pc_buffer.o semaphore.o
+	$(C++) -o client client.cpp reqchannel.cpp pc_buffer.cpp semaphore.cpp -lpthread
 
 test_suite: sync_test_mutex sync_test_mg sync_test_semaphore sync_test_pcbuffer
 
