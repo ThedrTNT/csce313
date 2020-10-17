@@ -11,6 +11,7 @@ Semaphore::Semaphore(int _val) {
 
 Semaphore::~Semaphore() {
   pthread_mutex_destroy(&m);
+  pthread_cond_destroy(&c);
 }
 
 int Semaphore::P() {

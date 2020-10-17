@@ -147,9 +147,9 @@ PCBuffer buffer(100);
 void * produce_items(void *) {
   for (int i = 0; i < 100000; i++) {
     cout << "P: depositing " << i << endl;
-    buffer.Deposit(i);
+    buffer.Deposit(to_string(i));
   }
-  buffer.Deposit(-1); // We deposit a '-1' to stop the consumer.
+  buffer.Deposit(to_string(-1)); // We deposit a '-1' to stop the consumer.
 
   cout << "Producer: done" << endl;
 
@@ -158,8 +158,10 @@ void * produce_items(void *) {
 
 void * consume_items(void *) {
   int val;
+  cout << "test" << endl;
   do {
-    val = buffer.Remove();
+    val = stoi(buffer.Retrieve());
+    cout << val << endl;
     if (val >= 0) {
       cout << "C: Removed " << val << endl;
     }
