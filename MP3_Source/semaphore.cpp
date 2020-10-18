@@ -21,7 +21,7 @@ int Semaphore::P() {
     pthread_cond_wait(&c, &m);
   }
   pthread_mutex_unlock(&m);
-  return 0;
+  return value;
 }
 
 int Semaphore::V() {
@@ -31,5 +31,5 @@ int Semaphore::V() {
     pthread_cond_signal(&c);
   }
   pthread_mutex_unlock(&m);
-  return 0;
+  return value;
 }

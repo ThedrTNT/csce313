@@ -62,7 +62,7 @@ typedef struct STFArgs{
 //PCBuffer buffer;
 
 // defaults for command line arguments
-int bufferSize = 500;
+int bufferSize = 10000;
 int numWorkerThread = 10;
 int numRequests = 10000;
 int histograms[3][10];
@@ -116,16 +116,19 @@ void * request_thread(void * args) {
   //cout << "Patient name: " << rtfa->patient_name << endl;
   for(int i = 0; i < rtfa->n_reqs; i++) {
     string req = "data " + rtfa->patient_name;
-    //cout << "Requesting: " << req << endl;
+    cout << "Requesting: " << req << endl;
     rtfa->buffer->Deposit(req);
   }
-  rtfa->buffer->Deposit("Done");
+  //rtfa->buffer->Deposit("Done");
 }
 
 void * worker_thread(void * args) {
   WTFArgs * wtfa = (WTFArgs *) args;
   for(;;) {
     string req = wtfa->buffer->Retrieve();
+    if(req == "") {
+      abort();
+    }
     if(req == "Done") {
       break;
     }
@@ -142,6 +145,7 @@ void * worker_thread(void * args) {
     cout << "req = " << req << endl;
   }
   wtfa->rc->send_request("quit");
+  delete wtfa->rc;
 }
 
 void * stat_thread(void * args) {
@@ -216,6 +220,10 @@ int main(int argc, char * argv[]) {
 
   //cout << bufferSize << endl << endl << endl;
   //buffer = new PCBuffer(bufferSize);
+  struct timeval timeStart_1;
+  struct timeval timeEnd_1;
+
+  assert(gettimeofday(&timeStart_1, 0) == 0);
 
 
   std::cout << "CLIENT STARTED:" << std::endl;
@@ -264,6 +272,14 @@ int main(int argc, char * argv[]) {
   pthread_create(&requestThread[1], NULL, request_thread, (void*)&requestData[1]);
   pthread_create(&requestThread[2], NULL, request_thread, (void*)&requestData[2]);
 
+  for(int i = 0; i < 3; i++) {
+    pthread_join(requestThread[i], NULL);
+  }
+
+  for(int i = 0; i < numWorkerThread; i++) {
+    buffer.Deposit("Done");
+  }
+
   cout << "Create statistics threads" << endl;
   STFArgs statData[3];
   statData[0].name = "Joe Smith";
@@ -279,9 +295,6 @@ int main(int argc, char * argv[]) {
   pthread_create(&statThread[1], NULL, stat_thread, (void *)&statData[1]);
   pthread_create(&statThread[2], NULL, stat_thread, (void *)&statData[2]);
 
-  for(int i = 0; i < 3; i++) {
-    pthread_join(requestThread[i], NULL);
-  }
 
   for(int i = 0; i < numWorkerThread; i++) {
     pthread_join(workerThread[i], NULL);
@@ -325,19 +338,19 @@ int main(int argc, char * argv[]) {
 
   generate_data();
 
-  assert(gettimeofday(&timeEnd_2, 0) == 0);
 
  */
 
 
   std::string reply4 = chan.send_request("quit");
   std::cout << "Reply to request 'quit' is '" << reply4 << std::endl;
-/*
-  print_time_diff("Time taken for computation remotely: ", timeStart_1, timeEnd_1);
-  print_time_diff("Time taken for computation localy: ", timeStart_2, timeEnd_2);
-*/
-  usleep(1000000);
+
+
   print_hists();
+  usleep(1000000);
+  assert(gettimeofday(&timeEnd_1, 0) == 0);
+
+  print_time_diff("Time taken for to run queries: ", timeStart_1, timeEnd_1);
 
   cout << "End of client" << endl;
 }
