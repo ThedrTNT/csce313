@@ -23,6 +23,7 @@
 #include <string>
 #include <string.h>
 #include <iostream>
+#include <iomanip>
 #include <sstream>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -47,7 +48,16 @@ typedef struct WTFArgs{
   PCBuffer * buffer;
   RequestChannel * rc;
   int thread_id;
+  PCBuffer * joe_stats;
+  PCBuffer * jane_stats;
+  PCBuffer * john_stats;
 } WTFArgs;
+
+typedef struct STFArgs{
+  string name;
+  PCBuffer * pcb;
+  int n_reqs;
+} STFArgs;
 
 //PCBuffer buffer;
 
@@ -55,6 +65,7 @@ typedef struct WTFArgs{
 int bufferSize = 500;
 int numWorkerThread = 10;
 int numRequests = 10000;
+int histograms[3][10];
 
 /*--------------------------------------------------------------------------*/
 /* CONSTANTS */
@@ -116,14 +127,56 @@ void * worker_thread(void * args) {
   for(;;) {
     string req = wtfa->buffer->Retrieve();
     if(req == "Done") {
-      delete wtfa->rc;
       break;
     }
-    wtfa->rc->send_request(req);
+    string reply = wtfa->rc->send_request(req);
+    if(req == "data Joe Smith") {
+      wtfa->joe_stats->Deposit(reply);
+    }
+    if(req == "data Jane Smith") {
+      wtfa->jane_stats->Deposit(reply);
+    }
+    if(req == "data John Doe") {
+      wtfa->john_stats->Deposit(reply);
+    }
     cout << "req = " << req << endl;
   }
+  wtfa->rc->send_request("quit");
+}
 
-  //if
+void * stat_thread(void * args) {
+  STFArgs * stfa = (STFArgs *) args;
+  for(int i = 0; i < stfa->n_reqs; i++) {
+    int reply = stoi(stfa->pcb->Retrieve()); 
+    cout << "statistics for " << stfa->name << " reply: " << reply << endl;
+    if(stfa->name == "Joe Smith") {
+      histograms[0][reply / 10]++;
+    }
+    if(stfa->name == "Jane Smith") {
+      histograms[1][reply / 10]++;
+    }
+    if(stfa->name == "John Doe") {
+      histograms[2][reply / 10]++;
+    }
+  }
+}
+
+void print_hists() {
+  for(int i = 0; i < 3; i++) {
+    cout << "     Histogram for patient " << i << endl;
+
+    cout << setw(10) << "0-9" << setw(10) << "10-19" 
+          << setw(10) << "20-29" << setw(10) << "30-39"
+          << setw(10) << "40-49" << setw(10) << "50-59"
+          << setw(10) << "60-69" << setw(10) << "70-79"
+          << setw(10) << "80-89" << setw(10) << "90-99" 
+          << "\n";
+
+    for(int j = 0; j < 10; j++) {
+      cout << setw(10) << histograms[i][j];
+    }
+    cout << endl << endl;
+  }
 }
 
 /*--------------------------------------------------------------------------*/
@@ -171,18 +224,22 @@ int main(int argc, char * argv[]) {
   RequestChannel chan("control", RequestChannel::Side::CLIENT);
   std::cout << "done." << std::endl;
 
-  //PCBuffer * buffer = new PCBuffer(bufferSize);
   PCBuffer buffer(bufferSize);
+  PCBuffer joe_stats(bufferSize);
+  PCBuffer jane_stats(bufferSize);
+  PCBuffer john_stats(bufferSize);
   pthread_t requestThread[3];
   pthread_t workerThread[numWorkerThread];
+  pthread_t statThread[3];
 
-  WTFArgs workerData[numWorkerThread];
-
-  
   std::cout << "Create worker threads" << std::endl;
+  WTFArgs workerData[numWorkerThread];
   for(int i = 0; i < numWorkerThread; i++) {
     workerData[i].buffer = &buffer;
     workerData[i].thread_id = i;
+    workerData[i].joe_stats = &joe_stats;
+    workerData[i].jane_stats = &jane_stats;
+    workerData[i].john_stats = &john_stats;
 
     string reply5 = chan.send_request("newthread");
     cout << "Reply to request 'newthread' is " << reply5 << "" << endl;
@@ -200,12 +257,27 @@ int main(int argc, char * argv[]) {
   requestData[1].patient_name = "Jane Smith";
   requestData[1].buffer = &buffer;
   requestData[2].n_reqs = numRequests;
-  requestData[2].patient_name = "John Smith";
+  requestData[2].patient_name = "John Doe";
   requestData[2].buffer = &buffer;
   
   pthread_create(&requestThread[0], NULL, request_thread, (void*)&requestData[0]);
   pthread_create(&requestThread[1], NULL, request_thread, (void*)&requestData[1]);
   pthread_create(&requestThread[2], NULL, request_thread, (void*)&requestData[2]);
+
+  cout << "Create statistics threads" << endl;
+  STFArgs statData[3];
+  statData[0].name = "Joe Smith";
+  statData[0].pcb = &joe_stats;
+  statData[0].n_reqs = numRequests;
+  statData[1].name = "Jane Smith";
+  statData[1].pcb = &jane_stats;
+  statData[1].n_reqs = numRequests;
+  statData[2].name = "John Doe";
+  statData[2].pcb = &john_stats;
+  statData[2].n_reqs = numRequests;
+  pthread_create(&statThread[0], NULL, stat_thread, (void *)&statData[0]);
+  pthread_create(&statThread[1], NULL, stat_thread, (void *)&statData[1]);
+  pthread_create(&statThread[2], NULL, stat_thread, (void *)&statData[2]);
 
   for(int i = 0; i < 3; i++) {
     pthread_join(requestThread[i], NULL);
@@ -213,6 +285,10 @@ int main(int argc, char * argv[]) {
 
   for(int i = 0; i < numWorkerThread; i++) {
     pthread_join(workerThread[i], NULL);
+  }
+
+  for(int i = 0; i < 3; i++) {
+    pthread_join(statThread[i], NULL);
   }
 
   //cout << "test" << endl;
@@ -251,12 +327,17 @@ int main(int argc, char * argv[]) {
 
   assert(gettimeofday(&timeEnd_2, 0) == 0);
 
- 
+ */
+
+
   std::string reply4 = chan.send_request("quit");
   std::cout << "Reply to request 'quit' is '" << reply4 << std::endl;
-
+/*
   print_time_diff("Time taken for computation remotely: ", timeStart_1, timeEnd_1);
   print_time_diff("Time taken for computation localy: ", timeStart_2, timeEnd_2);
 */
   usleep(1000000);
+  print_hists();
+
+  cout << "End of client" << endl;
 }
